@@ -115,7 +115,6 @@ async def on_voice_state_update(member, before, after):
     humans = [m for m in channel.members if not m.bot]
 
     if len(humans) == 0:
-        logger.info(f"VC {channel.name} is empty. Leaving like it was never wanted.")
         await vc.disconnect()
 
         queue = get_queue(member.guild.id)
