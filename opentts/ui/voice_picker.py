@@ -1,5 +1,5 @@
 import discord
-from ..utils.settings import update_user_setting
+from ..core.settings import update_user_setting
 
 
 def _group_by_language(voices: list[dict]) -> dict[str, list[str]]:
@@ -96,7 +96,11 @@ class ConfirmButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         view: VoicePickerView = self.view
-        update_user_setting(view.guild_id, view.user_id, "voice", view.selected_voice)
+        parts = (view.selected_voice or "").split("-", 2)
+        if len(parts) == 3:
+            update_user_setting(view.guild_id, view.user_id, "voice.lang",   parts[0])
+            update_user_setting(view.guild_id, view.user_id, "voice.region", parts[1])
+            update_user_setting(view.guild_id, view.user_id, "voice.name",   parts[2])
         view.stop()
         await interaction.response.edit_message(
             content=f"✅ Voice set to **{view.selected_voice}**",

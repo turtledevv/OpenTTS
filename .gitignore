@@ -4,6 +4,7 @@
 # Runtime data
 data/
 /tmp/
+logs/
 
 # Python
 __pycache__/

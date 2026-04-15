@@ -4,4 +4,4 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+bot.run(os.getenv("DISCORD_TOKEN"), log_handler=None)

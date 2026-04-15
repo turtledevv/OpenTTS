@@ -3,9 +3,9 @@ import discord
 from discord.ext import commands
 
 from .ui.voice_picker import VoicePickerView
-from .utils.settings import get_user_settings, update_user_setting, reset_user_settings, DEFAULT_SETTINGS
-from .utils.tts import get_edge_voices
-from .utils.queue_manager import get_queue
+from .core.settings import get_user_settings, update_user_setting, reset_user_settings, DEFAULT_SETTINGS
+from .core.tts import get_edge_voices
+from .core.queue import get_queue
 
 
 def register_commands(bot: commands.Bot, active_channels: set):
@@ -17,34 +17,34 @@ def register_commands(bot: commands.Bot, active_channels: set):
 
     t.tts → Join VC + enable TTS
     t.clear → Stop and clear queue
-    t.join → Join VC
-    t.leave → Leave VC
-    t.start → Enable TTS
+    t.join → Join VC (Deprecated, will be removed soon.)
+    t.leave → Leave VC (Deprecated, will be removed soon.)
+    t.start → Enable TTS (Deprecated, will be removed soon.)
 
 ### Settings
 
     t.voice [v] → Set voice / list voices
     t.speed [n] → Set speed (80–300)
     t.pitch [n] → Set pitch (0–99)
-    t.type [t] → espeak / edge
-    t.types → List TTS engines
-    t.nickname → Set nickname
+    t.engine [e] → espeak-ng / edge
+    t.engines → List TTS engines
+    t.nick [n] → Set nickname
 
 ### Other
 
     t.reset → Reset settings
         """
-        await ctx.send(msg)
+        await ctx.reply(msg)
 
     @bot.command()
     async def tts(ctx):
         if not ctx.author.voice:
-            await ctx.send("Join a VC first.")
+            await ctx.reply("Join a VC first.")
             return
         if not ctx.voice_client:
             await ctx.author.voice.channel.connect()
         active_channels.add(ctx.channel.id)
-        await ctx.send("TTS enabled.")
+        await ctx.reply("TTS enabled.")
 
     @bot.command()
     async def clear(ctx):
@@ -60,11 +60,16 @@ def register_commands(bot: commands.Bot, active_channels: set):
                 os.remove(file)
             except Exception:
                 pass
-        await ctx.send("Queue cleared.")
+        await ctx.reply("Queue cleared.")
 
     @bot.command()
+    async def engines(ctx):
+        await ctx.reply("```\nespeak-ng\nedge\n```")
+
+    # Keep old alias so nobody is surprised
+    @bot.command(name="types")
     async def types(ctx):
-        await ctx.send("```\nespeak\nedge\n```")
+        await ctx.invoke(engines)
 
     @bot.command()
     async def voice(ctx, *, value: str = None):
@@ -81,10 +86,10 @@ def register_commands(bot: commands.Bot, active_channels: set):
             locales.sort()
 
             view = VoicePickerView(voices, ctx.guild.id, ctx.author.id)
-            await ctx.send("Pick your voice:", view=view)
+            await ctx.reply("Pick your voice:", view=view)
             return
 
-        # Direct set by name
+        # Direct set by ShortName, e.g. "en-US-AriaNeural"
         voices = await get_edge_voices()
         match = next((v for v in voices if v["ShortName"].lower() == value.lower()), None)
 
@@ -94,44 +99,65 @@ def register_commands(bot: commands.Bot, active_channels: set):
                 match = matches[0]
             elif len(matches) > 1:
                 names = "\n".join(v["ShortName"] for v in matches[:10])
-                await ctx.send(f"Multiple matches:\n```\n{names}\n```")
+                await ctx.reply(f"Multiple matches:\n```\n{names}\n```")
                 return
             else:
-                await ctx.send("Voice not found.")
+                await ctx.reply("Voice not found.")
                 return
 
-        update_user_setting(ctx.guild.id, ctx.author.id, "voice", match["ShortName"])
-        await ctx.send(f"Voice set to {match['ShortName']}")
+        # Split ShortName into parts, e.g. "en-US-AriaNeural" -> lang=en, region=US, name=AriaNeural
+        parts = match["ShortName"].split("-", 2)
+        if len(parts) == 3:
+            update_user_setting(ctx.guild.id, ctx.author.id, "voice.lang",   parts[0])
+            update_user_setting(ctx.guild.id, ctx.author.id, "voice.region", parts[1])
+            update_user_setting(ctx.guild.id, ctx.author.id, "voice.name",   parts[2])
+        await ctx.reply(f"Voice set to {match['ShortName']}")
 
     @bot.command()
     async def speed(ctx, value: int):
         clamped = max(80, min(300, value))
-        update_user_setting(ctx.guild.id, ctx.author.id, "speed", clamped)
-        await ctx.send(f"Speed set to {clamped}")
+        update_user_setting(ctx.guild.id, ctx.author.id, "voice.settings.speed", clamped)
+        await ctx.reply(f"Speed set to {clamped}")
 
     @bot.command()
     async def pitch(ctx, value: int):
         clamped = max(0, min(99, value))
-        update_user_setting(ctx.guild.id, ctx.author.id, "pitch", clamped)
-        await ctx.send(f"Pitch set to {clamped}")
+        update_user_setting(ctx.guild.id, ctx.author.id, "voice.settings.pitch", clamped)
+        await ctx.reply(f"Pitch set to {clamped}")
 
+    @bot.command(name="engine")
+    async def tts_engine(ctx, value: str):
+        if value not in ("espeak-ng", "edge"):
+            await ctx.reply("Valid engines: `espeak-ng`, `edge`")
+            return
+        update_user_setting(ctx.guild.id, ctx.author.id, "engine", value)
+        await ctx.reply(f"TTS engine set to {value}")
+
+    # Old alias
     @bot.command(name="type")
     async def tts_type(ctx, value: str):
-        if value not in ["espeak", "edge"]:
-            await ctx.send("Valid types: espeak, edge")
+        # Accept old names and map them
+        _alias = {"espeak": "espeak-ng", "edge": "edge"}
+        mapped = _alias.get(value)
+        if mapped is None:
+            await ctx.reply("Valid engines: `espeak-ng`, `edge`")
             return
-        update_user_setting(ctx.guild.id, ctx.author.id, "type", value)
-        await ctx.send(f"TTS engine set to {value}")
+        await ctx.invoke(tts_engine, value=mapped)
 
     @bot.command()
+    async def nick(ctx, *, name: str = None):
+        update_user_setting(ctx.guild.id, ctx.author.id, "nick", name)
+        await ctx.reply(f"Nickname set to {name}")
+
+    # Keep old alias
+    @bot.command()
     async def nickname(ctx, *, name: str = None):
-        update_user_setting(ctx.guild.id, ctx.author.id, "nickname", name)
-        await ctx.send(f"Nickname set to {name}")
+        await ctx.invoke(nick, name=name)
 
     @bot.command()
     async def join(ctx):
         if not ctx.author.voice:
-            await ctx.send("Join a VC first.")
+            await ctx.reply("Join a VC first.")
             return
         await ctx.author.voice.channel.connect()
 
@@ -144,12 +170,12 @@ def register_commands(bot: commands.Bot, active_channels: set):
     @bot.command()
     async def start(ctx):
         if not ctx.voice_client:
-            await ctx.send("Use t.join first.")
+            await ctx.reply("Use t.join first.")
             return
         active_channels.add(ctx.channel.id)
-        await ctx.send("TTS enabled.")
+        await ctx.reply("TTS enabled.")
 
     @bot.command()
     async def reset(ctx):
         reset_user_settings(ctx.guild.id, ctx.author.id)
-        await ctx.send("Settings reset.")
+        await ctx.reply("Settings reset.")
