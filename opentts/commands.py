@@ -2,6 +2,7 @@ import os
 import discord
 from discord.ext import commands
 
+from .ui.voice_picker import VoicePickerView
 from .utils.settings import get_user_settings, update_user_setting, reset_user_settings, DEFAULT_SETTINGS
 from .utils.tts import get_edge_voices
 from .utils.queue_manager import get_queue
@@ -67,19 +68,24 @@ def register_commands(bot: commands.Bot, active_channels: set):
 
     @bot.command()
     async def voice(ctx, *, value: str = None):
+        if value is None:
+            voices = await get_edge_voices()
+
+            seen = set()
+            locales = []
+            for v in voices:
+                loc = v["Locale"]
+                if loc not in seen:
+                    seen.add(loc)
+                    locales.append(loc)
+            locales.sort()
+
+            view = VoicePickerView(voices, ctx.guild.id, ctx.author.id)
+            await ctx.send("Pick your voice:", view=view)
+            return
+
+        # Direct set by name
         voices = await get_edge_voices()
-
-        if not value:
-            filtered = [v for v in voices if v["Locale"] == "en-US"]
-            msg = "\n".join(v["ShortName"] for v in filtered[:25])
-            await ctx.send(f"```\n{msg}\n```")
-            return
-
-        if value.lower() == "all":
-            msg = "\n".join(v["ShortName"] for v in voices[:40])
-            await ctx.send(f"```\n{msg}\n```")
-            return
-
         match = next((v for v in voices if v["ShortName"].lower() == value.lower()), None)
 
         if not match:
