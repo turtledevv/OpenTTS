@@ -12,29 +12,27 @@ def register_commands(bot: commands.Bot, active_channels: set):
 
     @bot.command()
     async def help(ctx):
-        msg = """
-## TTS Commands
-
-    t.tts → Join VC + enable TTS
-    t.clear → Stop and clear queue
-    t.join → Join VC (Deprecated, will be removed soon.)
-    t.leave → Leave VC (Deprecated, will be removed soon.)
-    t.start → Enable TTS (Deprecated, will be removed soon.)
-
-### Settings
-
-    t.voice [v] → Set voice / list voices
-    t.speed [n] → Set speed (80–300)
-    t.pitch [n] → Set pitch (0–99)
-    t.engine [e] → espeak-ng / edge
-    t.engines → List TTS engines
-    t.nick [n] → Set nickname
-
-### Other
-
-    t.reset → Reset settings
-        """
-        await ctx.reply(msg)
+        embed = discord.Embed()
+        embed.set_author(
+            name="-- OpenTTS • Help --",
+        )
+        embed.set_thumbnail(url="https://raw.githubusercontent.com/turtledevv/OpenTTS/refs/heads/main/assets/profile.png")
+        embed.add_field(
+            name="🎙️ Basic Commands",
+            value="**`t.tts`** **|** Join the VC and enable TTS!\n**`t.clear`** **|** Stop and clear message queue.\n**`t.reset`** **|** Reset your user settings.",
+            inline=False,
+        )
+        embed.add_field(
+            name="🔧 Voice Settings",
+            value="**`t.voice`** **|** Set your TTS voice\n**`t.speed`** **|** Change the voice's speed *(80-300)*\n**`t.pitch`** **|** Change the voice's pitch *(0-99)*\n**`t.engine`** **|** Set the TTS engine *(espeak-ng/edge)*\n**`t.engines`** **|** List TTS engines\n-# *:warning: Speed and pitch may not be consistent between TTS engines!*",
+            inline=False,
+        )
+        embed.add_field(
+            name="For support, join our Discord server!",
+            value="-# https://discord.gg/vaTHzrjFgZ\n\n",
+            inline=False,\
+        )
+        await ctx.reply(embed=embed)
 
     @bot.command()
     async def tts(ctx):
