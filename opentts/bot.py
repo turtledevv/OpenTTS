@@ -39,10 +39,6 @@ async def on_ready():
 
     print(f'Logged in as {bot.user}')
 
-    #print("Syncing application commands...")
-    #await bot.tree.sync()
-    #print(f"Synced {len(bot.tree.get_commands())} commands.")
-
     print(f'Add the bot to your server: https://discord.com/api/oauth2/authorize?client_id={bot.user.id}&permissions=8&scope=bot')
 
     await bot.change_presence(status=discord.Status.dnd, activity=discord.Activity(name="Type 't.help' for help!", type=discord.ActivityType.playing))
